@@ -97,7 +97,7 @@ def get_resume_score(
         )
 
     # Calculate score
-    result = calculate_resume_score(
+    result = cal_resume_score(
         resume.extracted_text
     )
 
