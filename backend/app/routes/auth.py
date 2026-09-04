@@ -1,6 +1,7 @@
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
+from pwdlib import PasswordHash
 from jose import jwt
 from datetime import datetime, timedelta
 import os
@@ -21,10 +22,7 @@ router = APIRouter(
 )
 
 
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto"
-)
+password_hash = PasswordHash.recommended()
 
 
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -65,7 +63,7 @@ def register(
             detail="Email already registered"
         )
 
-    hashed_password = pwd_context.hash(user.password)
+    hashed_password = password_hash.hash(user.password)
 
     new_user = User(
         name=user.name,
@@ -89,7 +87,6 @@ def login(
     db: Session = Depends(get_db)
 ):
 
-    # Find user
     existing_user = db.query(User).filter(
         User.email == user.email
     ).first()
@@ -100,8 +97,7 @@ def login(
             detail="Invalid email or password"
         )
 
-    # Check password
-    password_correct = pwd_context.verify(
+    password_correct = password_hash.verify(
         user.password,
         existing_user.password
     )
@@ -112,7 +108,6 @@ def login(
             detail="Invalid email or password"
         )
 
-    # Create JWT
     access_token = create_access_token(
         existing_user.id
     )
