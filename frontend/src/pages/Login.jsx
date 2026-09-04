@@ -1,11 +1,13 @@
+
 import { useState } from "react";
 import api from "../services/api";
-import { Link } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const navigate=useNavigate();
+  const navigate = useNavigate();
+
   const handleLogin = async (e) => {
     e.preventDefault();
 
@@ -53,6 +55,10 @@ function Login() {
 
           <button type="submit">Login</button>
         </form>
+
+        <p className="auth-register">
+          Don't have an account? <Link to="/register">Register</Link>
+        </p>
       </div>
     </div>
   );
