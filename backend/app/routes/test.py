@@ -10,7 +10,7 @@ from app.models.resume import Resume
 from app.utils.security import get_current_user
 
 from app.services.test_service import (
-    generate_test_question,
+    generate_test_questions,
     evaluate_test_answer
 )
 
@@ -49,14 +49,17 @@ def generate_test(
 
     session_id = str(uuid.uuid4())
 
+    # Generate all 5 questions in ONE Gemini call
+    generated_questions = generate_test_questions(
+        resume.extracted_text
+    )
+
     questions = []
 
-    for question_number in range(1, TOTAL_QUESTIONS + 1):
+    for question_data in generated_questions:
 
-        question = generate_test_question(
-            resume.extracted_text,
-            question_number
-        )
+        question_number = question_data["question_number"]
+        question = question_data["question"]
 
         test = Test(
             user_id=user_id,
@@ -143,13 +146,54 @@ def submit_answer(
     db.commit()
     db.refresh(test)
 
-    return {
+    # Check whether all questions in this test session
+    # have been answered
+    session_tests = db.query(Test).filter(
+        Test.test_session_id == test.test_session_id,
+        Test.user_id == user_id
+    ).order_by(
+        Test.question_number
+    ).all()
+
+    answered_tests = [
+        item
+        for item in session_tests
+        if item.score is not None
+    ]
+
+    completed = (
+        len(answered_tests) == TOTAL_QUESTIONS
+    )
+
+    response = {
         "message": "Answer evaluated successfully",
         "test_id": test.id,
         "question_number": test.question_number,
         "score": test.score,
-        "feedback": test.feedback
+        "feedback": test.feedback,
+        "completed": completed
     }
+
+    # If all 5 questions are answered,
+    # calculate final result
+    if completed:
+
+        total_score = sum(
+            item.score
+            for item in answered_tests
+        )
+
+        average_score = (
+            total_score / len(answered_tests)
+        )
+
+        response["total_score"] = total_score
+        response["average_score"] = round(
+            average_score,
+            2
+        )
+
+    return response
 
 
 @router.get("/history")
@@ -199,7 +243,8 @@ def test_history(
         if answered:
 
             total_score = sum(
-                q["score"] for q in answered
+                q["score"]
+                for q in answered
             )
 
             average_score = (

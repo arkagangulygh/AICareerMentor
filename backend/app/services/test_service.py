@@ -1,5 +1,6 @@
 
 import os
+import json
 
 from dotenv import load_dotenv
 from google import genai
@@ -12,10 +13,7 @@ client = genai.Client(
 )
 
 
-def generate_test_question(
-    resume_text,
-    question_number
-):
+def generate_test_questions(resume_text):
 
     prompt = f"""
 You are an AI career assessment system.
@@ -23,10 +21,8 @@ You are an AI career assessment system.
 Candidate Resume:
 {resume_text}
 
-Generate ONE technical question for a weekly
+Generate exactly 5 technical questions for a weekly
 career assessment test.
-
-This is question {question_number} of 5.
 
 Difficulty progression:
 
@@ -38,16 +34,41 @@ Question 5: Advanced
 
 Rules:
 
-1. Base the question on technologies, skills,
+1. Base the questions on technologies, skills,
    projects or concepts mentioned in the resume.
-2. The question should test technical understanding.
-3. Ask exactly ONE question.
-4. Do not provide the answer.
-5. Keep the question clear and concise.
+2. Test technical understanding.
+3. Each question must contain exactly ONE question.
+4. Do not provide answers.
+5. Keep questions clear and concise.
 6. Avoid unrelated topics.
 7. Increase difficulty according to the question number.
+8. Return ONLY valid JSON.
+9. Do not include markdown or ```json.
 
-Return ONLY the question.
+Return exactly this format:
+
+[
+    {{
+        "question_number": 1,
+        "question": "..."
+    }},
+    {{
+        "question_number": 2,
+        "question": "..."
+    }},
+    {{
+        "question_number": 3,
+        "question": "..."
+    }},
+    {{
+        "question_number": 4,
+        "question": "..."
+    }},
+    {{
+        "question_number": 5,
+        "question": "..."
+    }}
+]
 """
 
     interaction = client.interactions.create(
@@ -55,7 +76,16 @@ Return ONLY the question.
         input=prompt
     )
 
-    return interaction.output_text.strip()
+    response_text = interaction.output_text.strip()
+
+    questions = json.loads(response_text)
+
+    if not isinstance(questions, list) or len(questions) != 5:
+        raise ValueError(
+            "Gemini did not return exactly 5 questions"
+        )
+
+    return questions
 
 
 def evaluate_test_answer(
